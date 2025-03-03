@@ -1,0 +1,124 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid()) // This is a custom ID field
+  email     String   @unique // This is a unique field (no two users can have the same email)
+  username  String   @unique // This is a unique field (no two users can have the same username)
+  clerkId   String   @unique // This is a unique field (no two users can have the same clerkId)
+  name      String?  // This is a required field. ? means it's optional
+  bio      String?  // This is a required field. ? means it's optional
+  image     String?  // This is a required field. ? means it's optional
+  location  String?  // This is a required field. ? means it's optional
+  website   String?  // This is a required field. ? means it's optional
+  createdAt DateTime @default(now()) // This is a timestamp field
+  updatedAt DateTime @updatedAt // This is a timestamp field that updates whenever the record is updated
+
+  // This is a relation field. It's a one-to-many relation, meaning a user can have many posts
+  posts     Post[] // This is a relation field that references the Post model. This show the posts that the user has created.
+  comments  Comment[] // This is a relation field that references the Comment model. This show the comments that the user has created.
+  likes     Like[] // This is a relation field that references the Like model. This show the likes that the user has created.
+
+  // This is a relation field. It's a one-to-many relation, meaning a user can have many followers
+  followers Follows[] @relation("following") // The following field is a relation field that references the Follows model with the following relation name "following". This show the users that are following the user. 
+  following Follows[] @relation("follower") // The follower field is a relation field that references the Follows model with the following relation name "follower". This show the users that the user is following.
+
+  // This is a relation field. It's a one-to-many relation, meaning a user can have many notifications
+  notifications Notification[] @relation("userNotifications") // The userNotifications field is a relation field that references the Notification model with the following relation name "userNotifications". This show the notifications that the user has received.
+  notificationsCreated Notification[] @relation("notificationCreator") // The notificationCreator field is a relation field that references the Notification model with the following relation name "notificationCreator". This show the notifications that the user has created.
+}
+
+model Post {
+  id      String   @id @default(cuid()) // This is a custom ID field
+  authorId String // This is a required field
+  content   String?   // This is a required field
+  image     String?  // This is a required field. ? means it's optional
+  createdAt DateTime @default(now()) // This is a timestamp field
+  updatedAt DateTime @updatedAt // This is a timestamp field that updates whenever the record is updated
+
+  // This is a relation field. It's a one-to-many relation, meaning a post can have many comments
+  author   User     @relation(fields: [authorId], references: [id], onDelete: Cascade) // This is a relation field that references the User model. This show the user that created the post. onDelete: Cascade means that if the user is deleted, all the posts that the user created will also be deleted.
+  comments Comment[] // This is a relation field that references the Comment model. This show the comments that the post has received.
+  likes    Like[] // This is a relation field that references the Like model. This show the likes that the post has received.
+  notifications Notification[]
+}
+
+model Comment {
+  id      String   @id @default(cuid()) // This is a custom ID field
+  authorId String // This is a required field
+  postId   String // This is a required field
+  content  String?   // This is a required field
+  createdAt DateTime @default(now()) // This is a timestamp field
+  
+  // This is a relation field. It's a one-to-many relation, meaning a comment can have many likes
+  author User     @relation(fields: [authorId], references: [id], onDelete: Cascade) // This is a relation field that references the User model. This show the user that created the comment. onDelete: Cascade means that if the user is deleted, all the comments that the user created will also be deleted.
+  post   Post     @relation(fields: [postId], references: [id], onDelete: Cascade) // This is a relation field that references the Post model. This show the post that the comment is on. onDelete: Cascade means that if the post is deleted, all the comments that the post received will also be deleted.
+  notifications Notification[] // This is a relation field that references the Notification model. This show the notifications that the comment has received.
+
+  @@index([authorId, postId]) // This is a unique index that ensures that a user can only comment once on a post. This is to prevent duplicate comments.
+}
+
+model Like {
+  id     String   @id @default(cuid()) // This is a custom ID field
+  userId String // This is a required field
+  postId String // This is a required field
+  createdAt DateTime @default(now()) // This is a timestamp field
+
+  // This is a relation field. It's a one-to-many relation, meaning a like can only belong to one user
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade) // This is a relation field that references the User model. This show the user that created the like. onDelete: Cascade means that if the user is deleted, all the likes that the user created will also be deleted.
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade) // This is a relation field that references the Post model. This show the post that the like is on. onDelete: Cascade means that if the post is deleted, all the likes that the post received will also be deleted.
+
+  @@index([userId, postId]) // This is a unique index that ensures that a user can only like a post once. This is to prevent duplicate likes.
+  @@unique([userId, postId]) // This is a unique index that ensures that a user can only like a post once. This is to prevent duplicate likes.
+}
+
+model Follows {
+  followerId String // This is a required field
+  followingId String // This is a required field
+  createdAt DateTime @default(now()) // This is a timestamp field
+
+  // This is a relation field. It's a one-to-many relation, meaning a follow can only belong to one user
+  follower    User     @relation("follower", fields: [followerId], references: [id], onDelete: Cascade) // This is a relation field that references the User model. This show the user that is following another user. onDelete: Cascade means that if the user is deleted, all the follows that the user created will also be deleted.
+  following   User     @relation("following", fields: [followingId], references: [id], onDelete: Cascade) // This is a relation field that references the User model. This show the user that is being followed. onDelete: Cascade means that if the user is deleted, all the follows that the user received will also be deleted.
+
+  @@index([followerId, followingId]) // This is a unique index that ensures that a user can only follow another user once. This is to prevent duplicate follows.
+  @@id([followerId, followingId]) // The id field is a composite primary key that ensures that a user can only follow another user once. This is to prevent duplicate follows.
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String                  
+  creatorId String                  
+  type      NotificationType        
+  read      Boolean  @default(false)
+  postId    String?                 
+  commentId String?                
+  createdAt DateTime @default(now())
+  
+  // Relations
+  user      User     @relation("userNotifications", fields: [userId], references: [id], onDelete: Cascade)
+  creator   User     @relation("notificationCreator", fields: [creatorId], references: [id], onDelete: Cascade)
+  post      Post?    @relation(fields: [postId], references: [id], onDelete: Cascade)
+  comment   Comment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+// This is an enum type that defines the different types of notifications that can be created in the app.
+enum NotificationType { 
+  LIKE     
+  COMMENT 
+  FOLLOW   
+}
